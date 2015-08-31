@@ -6,9 +6,10 @@ from BeautifulSoup import BeautifulSoup	#for extracting only text
 from whoosh.writing import AsyncWriter	
 import time
 import sys
+from whoosh.qparser import QueryParser
+
 #declare variables
 file_names = []		#stores all the file names
-
 
 def get_allfiles(files_path):
 	for x in listdir(files_path):
@@ -19,7 +20,6 @@ def create_schema():
 	global schema,ix,writer
 	schema = Schema(title=TEXT(stored=True), path=ID(stored=True), content=TEXT, time=DATETIME(stored=True))
 	ix = create_in("Datasets", schema)
-#	writer = AsyncWriter(ix)
 	writer = ix.writer()
 
 def index_allfiles():
@@ -31,7 +31,9 @@ def index_allfiles():
 		try:
 			soup = BeautifulSoup(file_data)
 		except UnicodeEncodeError:
-			print "Soup error: "+x	
+			print "Soup error: "+x
+		except TypeError:
+			soup = BeautifulSoup(file_data.decode('utf-8','ignore'))
 		if soup.title is None:
 			page_title = " "
 		else:
@@ -48,13 +50,16 @@ def index_allfiles():
 	writer.commit()
 	
 def main():
-	for x in (27,29): get_allfiles("Datasets/"+str(x))
+	for x in range(27,29): get_allfiles("Datasets/"+str(x))
 	create_schema()
 	start = time.time()
 	index_allfiles()
 	end = time.time()
 	print "Time taken to index data: "
 	print (end-start)
-
+	with ix.searcher() as searcher:
+		query = QueryParser("content", ix.schema).parse("cars")
+		results = searcher.search(query)
+		print results
 if __name__== "__main__":        
     main()
